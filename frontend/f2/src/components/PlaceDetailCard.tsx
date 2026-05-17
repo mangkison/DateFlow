@@ -154,6 +154,50 @@ export default function PlaceDetailCard({ place, onClose }: Props) {
                 </div>
             )}
 
+                        {/* 영업 정보 — 영업시간, 브레이크 타임, 휴무일 */}
+            <div style={{
+                background: '#f5f3fb',
+                borderRadius: '12px',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+            }}>
+                <p style={{ fontSize: '11px', color: '#b8a9d9', margin: '0 0 4px 0', fontWeight: 600 }}>
+                    영업 정보
+                </p>
+
+                {/* 영업시간 */}
+                {displayPlace.openingHours && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', color: '#888' }}>영업시간</span>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#5a4480' }}>
+                            {displayPlace.openingHours}
+                        </span>
+                    </div>
+                )}
+
+                {/* 브레이크 타임 — 있을 때만 표시 */}
+                {displayPlace.breakTime && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', color: '#888' }}>브레이크 타임</span>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#e8a0b4' }}>
+                            {displayPlace.breakTime}
+                        </span>
+                    </div>
+                )}
+
+                {/* 정기 휴무일 */}
+                {displayPlace.closedDays && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', color: '#888' }}>정기 휴무</span>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#888' }}>
+                            {displayPlace.closedDays}
+                        </span>
+                    </div>
+                )}
+            </div>
+
             {/* 액티비티 or 메뉴 */}
             {displayPlace.category === 'activity' ? (
                 <div>

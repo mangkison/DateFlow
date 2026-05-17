@@ -40,6 +40,9 @@ export const mockCourseData: CourseResult = {
       reservationAvailable: false,
       travelTimeToNext: 10,
       travelModeToNext: 'walk',
+      openingHours: '10:00 ~ 21:00',
+      closedDays: '매주 월요일',
+      breakTime: '15:00 ~ 16:00',
     },
     {
       time: '15:00',
@@ -66,7 +69,9 @@ export const mockCourseData: CourseResult = {
       reservationAvailable: false,
       travelTimeToNext: 15,
       travelModeToNext: 'walk',
-
+      openingHours: '11:00 ~ 22:00',
+      closedDays: '없음',
+      breakTime: undefined,
     },
     {
       time: '17:30',
@@ -95,6 +100,9 @@ export const mockCourseData: CourseResult = {
       reservationUrl: 'https://app.catchtable.co.kr/ct/shop/seongsu-yajang',
       travelTimeToNext: 5,
       travelModeToNext: 'car',
+      openingHours: '17:00 ~ 24:00',
+      closedDays: '매주 일요일',
+      breakTime: undefined,
     },
     {
       time: '19:30',
@@ -122,7 +130,9 @@ export const mockCourseData: CourseResult = {
       reservationAvailable: false,
       travelTimeToNext: 10,
       travelModeToNext: 'transit',
-
+      openingHours: '10:00 ~ 23:00',
+      closedDays: '없음',
+      breakTime: '14:00 ~ 15:00',
     },
     {
       time: '21:00',
@@ -149,6 +159,9 @@ export const mockCourseData: CourseResult = {
       isOverBudget: true,
       reservationAvailable: true,
       reservationUrl: 'https://app.catchtable.co.kr/ct/shop/seongsu-omakase',
+      openingHours: '18:00 ~ 23:00',
+      closedDays: '매주 월요일',
+      breakTime: undefined,
     },
   ],
 };
