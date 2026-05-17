@@ -32,38 +32,58 @@ export default function CourseResultPage() {
                 }}>
                     {mockCourseData.title} {getWeatherEmoji(mockCourseData.weather.weatherType)}
                 </h1>
+            </div>
 
-                {/* 예산 초과 아닐 때만 예산 정보 표시 */}
-                {!isOverBudget && (
-                    <p style={{ fontSize: '13px', color: '#b8a9d9', margin: '6px 0 0 0' }}>
-                        예산 {mockCourseData.budget.toLocaleString()}원 중 {totalCost.toLocaleString()}원 사용
-                    </p>
-                )}
-
-                {/* 전체 예산 초과 경고 박스 */}
-                {isOverBudget && (
-                    <div style={{
-                        background: '#fff4e6',
-                        border: '1px solid #f5d08a',
-                        borderRadius: '12px',
-                        padding: '14px 18px',
-                        marginTop: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
+           {/* 예산 진행 바 — 항상 표시, 초과 시 빨간색으로 변경 */}
+            <div style={{
+                background: '#ffffff',
+                borderRadius: '12px',
+                padding: '14px 18px',
+                marginTop: '12px',
+                marginBottom: '24px', // 아래 공간 추가
+                border: `1px solid ${isOverBudget ? '#f5c0c0' : '#e8e4f4'}`,
+            }}>
+                {/* 상단 — 예산 텍스트 정보 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', color: '#888' }}>
+                        예상 총 비용
+                    </span>
+                    <span style={{
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color: isOverBudget ? '#e05555' : '#5a4480', // 초과 시 빨간색
                     }}>
-                        <span style={{ fontSize: '24px' }}>⚠️</span>
-                        <div>
-                            <p style={{ fontSize: '14px', fontWeight: 700, color: '#d47c00', margin: 0 }}>
-                                전체 예산을 초과한 코스예요
-                            </p>
-                            <p style={{ fontSize: '12px', color: '#b36200', margin: '4px 0 0 0' }}>
-                                예산 {mockCourseData.budget.toLocaleString()}원 · 예상 총 비용 {totalCost.toLocaleString()}원
-                                ({Math.round((totalCost / mockCourseData.budget) * 100)}% 사용)
-                            </p>
-                        </div>
-                    </div>
-                )}
+                        {totalCost.toLocaleString()}원
+                        <span style={{ fontSize: '12px', fontWeight: 400, color: '#aaa', marginLeft: '6px' }}>
+                            / {mockCourseData.budget.toLocaleString()}원
+                        </span>
+                    </span>
+                </div>
+
+                {/* 진행 바 — 예산 대비 사용 비율 시각화 */}
+                <div style={{
+                    width: '100%',
+                    height: '8px',
+                    background: '#eee',
+                    borderRadius: '999px',
+                    overflow: 'hidden',
+                }}>
+                    <div style={{
+                        width: `${Math.min((totalCost / mockCourseData.budget) * 100, 100)}%`,
+                        height: '100%',
+                        background: isOverBudget ? '#e05555' : '#b8a9d9', // 초과 시 빨간색
+                        borderRadius: '999px',
+                        transition: 'width 0.3s ease',
+                    }} />
+                </div>
+
+                {/* 하단 — 남은 예산 or 초과 금액 */}
+                <div style={{ marginTop: '6px', fontSize: '12px', color: isOverBudget ? '#e05555' : '#b8a9d9', textAlign: 'right' }}>
+                    {isOverBudget
+                        ? `⚠️ ${(totalCost - mockCourseData.budget).toLocaleString()}원 초과`
+                        : `${(mockCourseData.budget - totalCost).toLocaleString()}원 남음`
+                    }
+                </div>
             </div>
 
             <div style={{

@@ -33,21 +33,6 @@ export default function CoursePlaceItem({ place, onClick }: Props) {
                         ⚠ 폐점 가능성
                     </span>
                 )}
-
-                {/* 예산 초과 경고 — 뱃지 형태 */}
-                {place.isOverBudget && (
-                    <span style={{
-                        fontSize: '11px',
-                        background: '#fff4e6',
-                        color: '#d47c00',
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        fontWeight: 600,
-                        border: '1px solid #f5d08a',
-                    }}>
-                        ⚠ 예산 초과
-                    </span>
-                )}
             </div>
 
             <p style={{ margin: '4px 0 0 52px', fontSize: '13px', color: '#555' }}>

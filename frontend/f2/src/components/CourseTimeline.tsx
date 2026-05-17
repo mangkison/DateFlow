@@ -7,7 +7,6 @@ interface Props {
 }
 
 export default function CourseTimeline({ places, onSelectPlace }: Props) {
-
     return (
         <div style={{ padding: '0 16px' }}>
             <h2 style={{ color: "#888", fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
