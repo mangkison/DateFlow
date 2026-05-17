@@ -11,7 +11,7 @@ export default function CourseResultPage() {
     const [selectedPlace, setSelectedPlace] = useState<CoursePlace | null>(null);
 
     // places state — totalCost 자동 재계산을 위해 state로 관리
-    const [places] = useState<CoursePlace[]>(mockCourseData.places);
+    const [places, setPlaces] = useState<CoursePlace[]>(mockCourseData.places);
 
     // places 기반 totalCost 실시간 계산
     const totalCost = places.reduce((sum, place) => sum + place.estimatedCost, 0);
@@ -122,6 +122,9 @@ export default function CourseResultPage() {
                     <PlaceDetailCard
                         place={selectedPlace}
                         onClose={() => setSelectedPlace(null)}
+                        onSkip={(place) => setPlaces((prev) => prev.filter((p) => p.name !== place.name))}
+                        onRecommendOther={(place) => alert(`${place.name} 대신 다른 장소를 추천받을게요! (Week 3 API 연동 예정)`)}
+                        onWishlist={(place) => console.log('찜하기:', place.name)}
                     />
                 </div>
             )}

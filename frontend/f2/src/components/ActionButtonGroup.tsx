@@ -1,13 +1,12 @@
+import { useState } from "react";
 import type { CoursePlace } from "../types/course";
 
 interface Props {
     place: CoursePlace;
-    onSelectAlternative: () => void;
-    onShowLowCrowd: () => void;
-    tabVisible: boolean;
 }
 
-export default function ActionButtonGroup({ place, onSelectAlternative, onShowLowCrowd, tabVisible }: Props) {
+export default function ActionButtonGroup({ place }: Props) {
+    const [copied, setCopied] = useState(false);
 
     // 카카오맵 길찾기 URL 생성 — 장소명과 좌표를 파라미터로 전달
     const handleNavigation = () => {
@@ -23,6 +22,17 @@ export default function ActionButtonGroup({ place, onSelectAlternative, onShowLo
             window.open(place.reservationUrl, '_blank');
         } else {
             alert('현재 온라인 예약이 제공되지 않는 장소예요.\n직접 방문하거나 전화로 문의해주세요.');
+        }
+    };
+
+    // 공유하기 — 현재 페이지 URL을 클립보드에 복사
+    const handleShare = async () => {
+        try {
+            await navigator.clipboard.writeText(window.location.href);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000); // 2초 후 원래 텍스트로 복구
+        } catch {
+            alert('링크 복사에 실패했어요. 직접 URL을 복사해주세요.');
         }
     };
 
@@ -53,73 +63,34 @@ export default function ActionButtonGroup({ place, onSelectAlternative, onShowLo
             lineHeight: '1.4',
         };
 
+    const baseButtonStyle: React.CSSProperties = {
+        flex: 1,
+        padding: '10px 8px',
+        background: '#f5f3fb',
+        color: '#5a4480',
+        border: '1px solid #e8e4f4',
+        borderRadius: '10px',
+        fontSize: '12px',
+        fontWeight: 600,
+        cursor: 'pointer',
+        lineHeight: '1.4',
+    };
+
     return (
         <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
 
-            {/* 웨이팅 적은 시간대 버튼 — CrowdChart의 highlightLow 토글 */}
-            <button
-                onClick={onShowLowCrowd}
-                style={{
-                    flex: 1,
-                    padding: '10px 8px',
-                    background: '#f5f3fb',
-                    color: '#5a4480',
-                    border: '1px solid #e8e4f4',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    lineHeight: '1.4',
-                }}
-            >
-                웨이팅 적은<br />시간대로
+            {/* 공유하기 버튼 — 클립보드에 URL 복사, 복사 완료 시 텍스트 변경 */}
+            <button onClick={handleShare} style={baseButtonStyle}>
+                {copied ? <>복사<br />완료 ✓</> : <>공유<br />하기</>}
             </button>
 
-            {/* 대체 장소 버튼 — 대체 장소가 있고 탭이 아직 열리지 않았을 때만 표시 */}
-            {place.alternativePlace && !tabVisible && (
-                <button
-                    onClick={onSelectAlternative}
-                    style={{
-                        flex: 1,
-                        padding: '10px 8px',
-                        background: '#f5f3fb',
-                        color: '#5a4480',
-                        border: '1px solid #e8e4f4',
-                        borderRadius: '10px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        lineHeight: '1.4',
-                    }}
-                >
-                    대체 장소<br />추천
-                </button>
-            )}
-
             {/* 길찾기 버튼 — 카카오맵 외부 링크로 연결 */}
-            <button
-                onClick={handleNavigation}
-                style={{
-                    flex: 1,
-                    padding: '10px 8px',
-                    background: '#f5f3fb',
-                    color: '#5a4480',
-                    border: '1px solid #e8e4f4',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    lineHeight: '1.4',
-                }}
-            >
+            <button onClick={handleNavigation} style={baseButtonStyle}>
                 길찾기
             </button>
 
             {/* 예약 버튼 — 예약 가능 여부에 따라 스타일과 텍스트 분기 */}
-            <button
-                onClick={handleReservation}
-                style={reservationButtonStyle}
-            >
+            <button onClick={handleReservation} style={reservationButtonStyle}>
                 {place.reservationAvailable ? (
                     <>캐치테이블<br />예약하기</>
                 ) : (
