@@ -53,6 +53,8 @@ export interface CoursePlace {
     alternativePlace?: CoursePlace;
     admissionFee?: number;
     originalName?: string;
+    travelTimeToNext?: number;
+    travelModeToNext?: 'walk' | 'car' | 'transit';
 }
 
 // 코스 전체 데이터

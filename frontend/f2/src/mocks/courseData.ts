@@ -38,6 +38,8 @@ export const mockCourseData: CourseResult = {
       budgetRatio: 19.5,
       isOverBudget: false,
       reservationAvailable: false,
+      travelTimeToNext: 10,
+      travelModeToNext: 'walk',
     },
     {
       time: '15:00',
@@ -62,6 +64,9 @@ export const mockCourseData: CourseResult = {
       budgetRatio: 7,
       isOverBudget: false,
       reservationAvailable: false,
+      travelTimeToNext: 15,
+      travelModeToNext: 'walk',
+
     },
     {
       time: '17:30',
@@ -88,6 +93,8 @@ export const mockCourseData: CourseResult = {
       isOverBudget: false,
       reservationAvailable: true,
       reservationUrl: 'https://app.catchtable.co.kr/ct/shop/seongsu-yajang',
+      travelTimeToNext: 5,
+      travelModeToNext: 'car',
     },
     {
       time: '19:30',
@@ -113,6 +120,9 @@ export const mockCourseData: CourseResult = {
       budgetRatio: 23,
       isOverBudget: false,
       reservationAvailable: false,
+      travelTimeToNext: 10,
+      travelModeToNext: 'transit',
+
     },
     {
       time: '21:00',

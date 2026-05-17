@@ -11,7 +11,7 @@ export default function CoursePlaceItem({ place, onClick }: Props) {
     return (
         <div
             onClick={() => onClick(place)}
-            style={{ cursor: 'pointer', padding: '12px 0', borderBottom: '1px solid #eee' }}
+            style={{ cursor: 'pointer', padding: '12px 0' }}
         >
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <span style={{ color: "#888", fontSize: '13px', minWidth: '40px' }}>
