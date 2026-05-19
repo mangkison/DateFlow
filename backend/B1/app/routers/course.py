@@ -5,8 +5,40 @@ from app.models.user import UserPreference
 from app.schemas.course import CourseRequest, CourseResponse, CourseItem, PlaceItem
 from app.services.weather import get_weather
 import uuid
+import httpx
 
 router = APIRouter()
+
+B2_URL = "http://localhost:8001"
+
+async def fetch_places(category: str, area: str) -> list[dict]:
+    """B2 API에서 실제 장소 데이터 가져오기 (없으면 실시간 수집)"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # 1. 먼저 DB에서 조회
+            res = await client.get(
+                f"{B2_URL}/places",
+                params={"category": category, "area": area, "size": 5}
+            )
+            data = res.json()
+            places = data.get("places", [])
+
+            # 2. 없으면 실시간 수집 후 다시 조회
+            if not places:
+                await client.post(
+                    f"{B2_URL}/places/collect",
+                    json={"query": f"{area} {category}", "crawl_supplement": False}
+                )
+                res = await client.get(
+                    f"{B2_URL}/places",
+                    params={"category": category, "area": area, "size": 5}
+                )
+                data = res.json()
+                places = data.get("places", [])
+
+            return places
+    except Exception:
+        return []
 
 @router.post("/generate", response_model=CourseResponse)
 async def generate_course(req: CourseRequest, db: Session = Depends(get_db)):
@@ -23,25 +55,31 @@ async def generate_course(req: CourseRequest, db: Session = Depends(get_db)):
     if req.budget < 10000:
         raise HTTPException(status_code=400, detail="예산은 최소 10,000원 이상이어야 합니다.")
 
-    cafe_budget      = int(budget * 0.15)   # 15%
-    dinner_budget    = int(budget * 0.50)   # 50%
-    bar_budget       = int(budget * 0.35)   # 35%
+    cafe_budget      = int(budget * 0.15)
+    dinner_budget    = int(budget * 0.50)
+    bar_budget       = int(budget * 0.35)
 
     # 3. 날씨 조회
     weather = await get_weather(req.lat, req.lon, req.region)
     is_outdoor = weather.get("is_outdoor_ok", True)
 
-    # 4. 날씨 기반 장소 타입 조정
-    cafe_type   = "루프탑 카페" if is_outdoor else "실내 감성 카페"
-    dinner_type = "야외 레스토랑" if is_outdoor else "실내 레스토랑"
+    # 4. B2 API에서 실제 장소 가져오기
+    cafes = await fetch_places("카페", req.region)
+    restaurants = await fetch_places("레스토랑", req.region)
+    bars = await fetch_places("바/펍", req.region)
 
-    # 5. 코스 생성 (AI 연동 전 Mock)
-    mock_course = CourseItem(
+    # 5. 장소 선택 (없으면 Mock 폴백)
+    cafe_name = cafes[0]["name"] if cafes else f"{req.region} 카페"
+    restaurant_name = restaurants[0]["name"] if restaurants else f"{req.region} 레스토랑"
+    bar_name = bars[0]["name"] if bars else f"{req.region} 바"
+
+    # 6. 코스 생성
+    course = CourseItem(
         title=f"{mood} 코스 ({weather['description']})",
         total_price=cafe_budget + dinner_budget + bar_budget,
         places=[
             PlaceItem(
-                name=f"{req.region} {cafe_type}",
+                name=cafe_name,
                 category="카페",
                 region=req.region,
                 time=req.start_time,
@@ -49,7 +87,7 @@ async def generate_course(req: CourseRequest, db: Session = Depends(get_db)):
                 is_open=True,
             ),
             PlaceItem(
-                name=f"{req.region} {dinner_type}",
+                name=restaurant_name,
                 category="식당",
                 region=req.region,
                 time="18:00",
@@ -57,7 +95,7 @@ async def generate_course(req: CourseRequest, db: Session = Depends(get_db)):
                 is_open=True,
             ),
             PlaceItem(
-                name=f"{req.region} 와인바",
+                name=bar_name,
                 category="바",
                 region=req.region,
                 time="20:00",
@@ -71,7 +109,7 @@ async def generate_course(req: CourseRequest, db: Session = Depends(get_db)):
         course_id=str(uuid.uuid4()),
         user_id=req.user_id,
         region=req.region,
-        courses=[mock_course],
+        courses=[course],
     )
 
 @router.get("/{course_id}")
