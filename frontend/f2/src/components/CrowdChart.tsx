@@ -5,29 +5,11 @@ interface Props {
     highlightLow?: boolean;
 }
 
-function getBarColor(level: 'low' | 'mid' | 'high'): string {
-    switch (level) {
-        case "low": return '#b8a9d9';
-        case "mid": return '#e8a0b4';
-        case "high": return '#d4849a';
-    }
-}
-
-function getLevelText(level: 'low' | 'mid' | 'high'): string {
-    switch (level) {
-        case "low": return '한산';
-        case "mid": return '보통';
-        case "high": return '혼잡';
-    }
-}
-
-function getBarHeight(level: 'low' | 'mid' | 'high'): string {
-    switch (level) {
-        case "low": return '20%';
-        case "mid": return '55%';
-        case "high": return '100%';
-    }
-}
+const LEVEL_MAP: Record<'low' | 'mid' | 'high', { color: string; text: string; height: string }> = {
+    low:  { color: '#b8a9d9', text: '한산', height: '20%' },
+    mid:  { color: '#e8a0b4', text: '보통', height: '55%' },
+    high: { color: '#d4849a', text: '혼잡', height: '100%' },
+};
 
 export default function CrowdChart({ crowdData, highlightLow = false }: Props) {
     return (
@@ -63,16 +45,16 @@ export default function CrowdChart({ crowdData, highlightLow = false }: Props) {
                     >
                         <span style={{
                             fontSize: '9px',
-                            color: getBarColor(item.level),
+                            color: LEVEL_MAP[item.level].color,
                             marginBottom: '4px',
                             fontWeight: 600,
                         }}>
-                            {getLevelText(item.level)}
+                            {LEVEL_MAP[item.level].text}
                         </span>
                         <div style={{
                             width: '100%',
-                            height: getBarHeight(item.level),
-                            background: getBarColor(item.level),
+                            height: LEVEL_MAP[item.level].height,
+                            background: LEVEL_MAP[item.level].color,
                             borderRadius: '4px 4px 0 0',
                             outline: highlightLow && item.level === 'low' ? '2px solid #5a4480' : 'none',
                         }} />
@@ -113,11 +95,11 @@ export default function CrowdChart({ crowdData, highlightLow = false }: Props) {
                             width: '10px',
                             height: '10px',
                             borderRadius: '2px',
-                            background: getBarColor(level),
+                            background: LEVEL_MAP[level].color,
                             display: 'inline-block',
                         }} />
                         <span style={{ fontSize: '11px', color: '#999' }}>
-                            {getLevelText(level)}
+                            {LEVEL_MAP[level].text}
                         </span>
                     </div>
                 ))}

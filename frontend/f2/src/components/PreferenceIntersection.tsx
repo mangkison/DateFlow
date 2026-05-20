@@ -9,26 +9,16 @@ interface TagProps {
     variant: 'a' | 'b' | 'common';
 }
 
-function getTagStyle(variant: TagProps['variant']): React.CSSProperties {
-    switch (variant) {
-        case 'a': return { background: '#E8E4F4', color: '#7B6BAD' };
-        case 'b': return { background: '#FAEEF2', color: '#c0607a' };
-        case 'common': return { background: '#E4EEF8', color: '#5a84b0' };
-    }
-}
-
-function getLegendColor(variant: 'a' | 'b' | 'common'): string {
-    switch (variant) {
-        case "a": return '#b8a9d9';
-        case "b": return '#e8a0b4';
-        case "common": return '#a8c4e0';
-    }
-}
+const VARIANT_MAP: Record<'a' | 'b' | 'common', { tag: React.CSSProperties; dot: string }> = {
+    a:      { tag: { background: '#E8E4F4', color: '#7B6BAD' }, dot: '#b8a9d9' },
+    b:      { tag: { background: '#FAEEF2', color: '#c0607a' }, dot: '#e8a0b4' },
+    common: { tag: { background: '#E4EEF8', color: '#5a84b0' }, dot: '#a8c4e0' },
+};
 
 function Tag({ label, variant }: TagProps) {
     return (
         <span style={{
-            ...getTagStyle(variant),
+            ...VARIANT_MAP[variant].tag,
             display: 'inline-block',
             padding: '4px 12px',
             borderRadius: '999px',
@@ -47,7 +37,7 @@ function LegendDot({ variant, label }: { variant: 'a' | 'b' | 'common'; label: s
                 width: '10px',
                 height: '10px',
                 borderRadius: '50%',
-                background: getLegendColor(variant),
+                background: VARIANT_MAP[variant].dot,
                 display: 'inline-block',
             }} />
             {label}

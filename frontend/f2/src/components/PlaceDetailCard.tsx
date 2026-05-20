@@ -1,7 +1,7 @@
-import { useState } from "react";
 import type { CoursePlace } from "../types/course";
 import CrowdChart from "./CrowdChart";
 import ActionButtonGroup from "./ActionButtonGroup";
+import PlaceActionButtonGroup from "./PlaceActionButtonGroup";
 import { mockCrowdData, mockReviews } from "../mocks/courseData";
 import { formatDaysAgo } from "../utils/formatDaysAgo";
 import { isLikelyClosed } from "../utils/isLikelyClosed";
@@ -15,8 +15,6 @@ interface Props {
 }
 
 export default function PlaceDetailCard({ place, onClose, onSkip, onRecommendOther, onWishlist }: Props) {
-    const [wishlisted, setWishlisted] = useState(false); // 찜 상태 토글용
-
     return (
         <div style={{
             background: '#ffffff',
@@ -61,62 +59,14 @@ export default function PlaceDetailCard({ place, onClose, onSkip, onRecommendOth
                 </button>
             </div>
 
-            {/* 장소 액션 버튼 — 건너뛰기, 다른 장소 추천, 찜하기 */}
-            <div style={{ display: 'flex', gap: '8px' }}>
-                {/* 건너뛰기 — 이 장소를 코스에서 제외 */}
-                <button
-                    onClick={() => { onSkip(place); onClose(); }}
-                    style={{
-                        flex: 1,
-                        padding: '8px',
-                        background: '#f5f3fb',
-                        color: '#888',
-                        border: '1px solid #e8e4f4',
-                        borderRadius: '10px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                    }}
-                >
-                    🚫 건너뛰기
-                </button>
-
-                {/* 다른 장소 추천 — Week 3에 실제 API로 교체 예정 */}
-                <button
-                    onClick={() => onRecommendOther(place)}
-                    style={{
-                        flex: 1,
-                        padding: '8px',
-                        background: '#f5f3fb',
-                        color: '#5a4480',
-                        border: '1px solid #e8e4f4',
-                        borderRadius: '10px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                    }}
-                >
-                    🔄 다른 장소 추천
-                </button>
-
-                {/* 찜하기 — 토글 방식, DateReviewPage와 연동 예정 */}
-                <button
-                    onClick={() => { setWishlisted((prev) => !prev); onWishlist(place); }}
-                    style={{
-                        flex: 1,
-                        padding: '8px',
-                        background: wishlisted ? '#faeef2' : '#f5f3fb',
-                        color: wishlisted ? '#c0607a' : '#888',
-                        border: `1px solid ${wishlisted ? '#f0c0cc' : '#e8e4f4'}`,
-                        borderRadius: '10px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                    }}
-                >
-                    {wishlisted ? '💜 찜 완료' : '🤍 찜하기'}
-                </button>
-            </div>
+            {/* 장소 액션 버튼 — 건너뛰기, 다른 장소 추천, 찜하기, 공유하기 */}
+            <PlaceActionButtonGroup
+                place={place}
+                onSkip={onSkip}
+                onRecommendOther={onRecommendOther}
+                onWishlist={onWishlist}
+                onClose={onClose}
+            />
 
             {/* 웨이팅 + 공간 유형 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -149,6 +99,30 @@ export default function PlaceDetailCard({ place, onClose, onSkip, onRecommendOth
                         {place.admissionFee.toLocaleString()}원
                     </span>
                 </div>
+            )}
+
+            {/* 예약 링크 버튼 — 네이버 우선, 없으면 캐치테이블 */}
+            {place.reservationAvailable && (place.naverReservationUrl ?? place.reservationUrl) && (
+                <a
+                    href={place.naverReservationUrl ?? place.reservationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        background: '#5a4480',
+                        color: '#fff',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        textDecoration: 'none',
+                    }}
+                >
+                    📅 {place.naverReservationUrl ? '네이버 예약하기' : '캐치테이블 예약하기'}
+                </a>
             )}
 
             {/* 영업 정보 — 영업시간, 브레이크 타임, 휴무일 */}
@@ -229,9 +203,17 @@ export default function PlaceDetailCard({ place, onClose, onSkip, onRecommendOth
             )}
 
             {/* 혼잡도 차트 */}
+            {/* API 코드는 여기에 넣으시오
+                GET /places/{place.kakao_id}/crowd  →  시간대별 혼잡도 배열 수신
+                응답 데이터를 crowdData prop에 전달
+            */}
             <CrowdChart crowdData={mockCrowdData} highlightLow={false} />
 
             {/* 최근 방문 후기 */}
+            {/* API 코드는 여기에 넣으시오
+                GET /places/{place.kakao_id}/reviews  →  후기 배열 수신
+                응답 데이터로 mockReviews 교체
+            */}
             <div>
                 <p style={{ fontSize: '13px', fontWeight: 600, color: '#3d3d3d', marginBottom: '10px' }}>
                     최근 방문 후기

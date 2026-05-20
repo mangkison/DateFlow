@@ -5,11 +5,16 @@ import { mockCourseData } from "../mocks/courseData";
 import PreferenceIntersection from "../components/PreferenceIntersection";
 import CourseTimeline from "../components/CourseTimeline";
 import PlaceDetailCard from "../components/PlaceDetailCard";
+import KakaoMap from "../components/KakaoMap";
 import { getWeatherEmoji } from "../utils/getWeatherEmoji";
 
 export default function CourseResultPage() {
     const [selectedPlace, setSelectedPlace] = useState<CoursePlace | null>(null);
 
+    /* API 코드는 여기에 넣으시오
+       GET /course/result  →  코스 전체 데이터(places, budget, weather 등) 수신
+       응답 받은 뒤 setPlaces(response.places) 로 교체
+    */
     // places state — totalCost 자동 재계산을 위해 state로 관리
     const [places, setPlaces] = useState<CoursePlace[]>(mockCourseData.places);
 
@@ -99,7 +104,11 @@ export default function CourseResultPage() {
                         personB={mockCourseData.personB}
                         common={mockCourseData.common}
                     />
-                    {/* 카카오 지도 — API 키 발급 후 추가 예정 */}
+                    <KakaoMap
+                        places={places}
+                        selectedPlace={selectedPlace}
+                        onSelectPlace={setSelectedPlace}
+                    />
                 </div>
 
                 {/* 오른쪽 — 코스 타임라인 */}
@@ -123,6 +132,10 @@ export default function CourseResultPage() {
                         place={selectedPlace}
                         onClose={() => setSelectedPlace(null)}
                         onSkip={(place) => setPlaces((prev) => prev.filter((p) => p.name !== place.name))}
+                        /* API 코드는 여기에 넣으시오
+                           POST /course/recommend-other  →  { place_name } 전송
+                           응답받은 대체 장소로 setPlaces 업데이트
+                        */
                         onRecommendOther={(place) => alert(`${place.name} 대신 다른 장소를 추천받을게요! (Week 3 API 연동 예정)`)}
                         onWishlist={(place) => console.log('찜하기:', place.name)}
                     />

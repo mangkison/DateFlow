@@ -48,13 +48,18 @@ export interface CoursePlace {
     estimatedCost: number;
     budgetRatio: number;
     isOverBudget: boolean;
+    phone?: string;
+    parkingAvailable?: boolean;
     reservationAvailable: boolean;
+    naverReservationUrl?: string;
     reservationUrl?: string;
-    alternativePlace?: CoursePlace;
     admissionFee?: number;
     originalName?: string;
     travelTimeToNext?: number;
     travelModeToNext?: 'walk' | 'car' | 'transit';
+    openingHours?: string;
+    closedDays?: string;
+    breakTime?: string;
 }
 
 // 코스 전체 데이터
@@ -66,8 +71,6 @@ export interface CourseResult {
     common: string[];
     weather: WeatherInfo;
     budget: number;
-    totalCost: number;
-    isOverBudget: boolean;
 }
 
 // 시간대별 혼잡도 데이터
