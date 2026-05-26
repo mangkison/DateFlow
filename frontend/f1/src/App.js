@@ -48,7 +48,7 @@ async function searchKakaoPlaces(query) {
   });
 }
 
-// ── 날씨 (open-meteo) ─────────────────────────────────────
+// ── 날씨 ─────────────────────────────────────────────────
 const weatherCodeToType = (c) => {
   if ([0,1].includes(c))                          return "sunny";
   if ([2,3].includes(c))                          return "cloudy";
@@ -63,7 +63,38 @@ const WEATHER_META = {
   snow:   { icon:"❄️", label:"눈·추위", note:"따뜻한 실내 코스" },
 };
 
-async function fetchWeatherByCoords(lat, lon, cityName) {
+// 기상청(백엔드) → open-meteo 순으로 시도
+async function fetchWeatherWithFallback(lat, lon, cityName) {
+  // 1. 기상청 API (백엔드 /weather/ 프록시)
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res   = await fetch(
+      `${API_BASE}/weather/?lat=${lat}&lon=${lon}&region=${encodeURIComponent(cityName || "")}`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(timer);
+    if (res.ok) {
+      const d = await res.json();
+      // error 필드 없고 pty_code가 정상이면 기상청 데이터 사용
+      if (!d.error && d.pty_code !== null && d.pty_code !== undefined) {
+        let type = "cloudy";
+        if ([1,2,4].includes(d.pty_code)) type = "rainy";
+        else if (d.pty_code === 3)         type = "snow";
+        else if (d.temperature >= 20)      type = "sunny";
+        return {
+          type,
+          temp:      d.temperature !== null ? Math.round(d.temperature) : null,
+          cityName:  cityName || d.region || "선택 지역",
+          source:    "kma",
+          humidity:  d.humidity,
+          windSpeed: d.wind_speed,
+        };
+      }
+    }
+  } catch { /* 백엔드 미연결 → 폴백 */ }
+
+  // 2. open-meteo 폴백
   const w = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weathercode,temperature_2m&timezone=Asia%2FSeoul`
   ).then(r => r.json());
@@ -71,8 +102,13 @@ async function fetchWeatherByCoords(lat, lon, cityName) {
     type:     weatherCodeToType(w.current.weathercode),
     temp:     Math.round(w.current.temperature_2m),
     cityName: cityName || "선택 지역",
+    source:   "openmeteo",
     lat, lon,
   };
+}
+
+async function fetchWeatherByCoords(lat, lon, cityName) {
+  return fetchWeatherWithFallback(lat, lon, cityName);
 }
 
 async function fetchWeatherByCity(city) {
@@ -81,7 +117,7 @@ async function fetchWeatherByCity(city) {
   ).then(r => r.json());
   if (!g.results?.length) throw new Error("지역을 찾을 수 없어요");
   const { latitude, longitude, name } = g.results[0];
-  return fetchWeatherByCoords(latitude, longitude, name);
+  return fetchWeatherWithFallback(latitude, longitude, name);
 }
 
 // ── 예산 ──────────────────────────────────────────────────
@@ -391,13 +427,23 @@ function WeatherBadge({ wx, loading }) {
     </div>
   );
   if (!wx) return null;
-  const m = WEATHER_META[wx.type];
+  const m     = WEATHER_META[wx.type];
+  const isKMA = wx.source === "kma";
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:C.skyDim, border:`1px solid ${C.sky}44`, borderRadius:12, animation:"fadeUp 0.3s ease" }}>
       <span style={{ fontSize:20 }}>{m.icon}</span>
-      <div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{wx.cityName} 현재 날씨: {m.label}{wx.temp !== null && ` · ${wx.temp}°C`}</div>
-        <div style={{ fontSize:11, color:C.textDim, marginTop:2 }}>{m.note} · 코스 생성에 반영돼요</div>
+      <div style={{ flex:1 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap", marginBottom:2 }}>
+          <span style={{ fontSize:13, fontWeight:700, color:C.text }}>
+            {wx.cityName} 현재 {m.label}{wx.temp !== null ? ` · ${wx.temp}°C` : ""}
+          </span>
+          <span style={{ fontSize:10, padding:"1px 6px", borderRadius:4, fontWeight:700,
+            background: isKMA ? C.greenBg : C.skyDim,
+            color:      isKMA ? C.green   : C.sky }}>
+            {isKMA ? "기상청" : "open-meteo"}
+          </span>
+        </div>
+        <div style={{ fontSize:11, color:C.textDim }}>{m.note} · 코스 생성에 반영돼요</div>
       </div>
     </div>
   );
@@ -574,62 +620,127 @@ function isWeekendDate(s) {
 }
 
 // ── 날짜 선택 컴포넌트 ────────────────────────────────────
-function DatePicker({ value, onChange }) {
-  const inputRef = useRef();
+function CalendarPicker({ value, onChange }) {
+  const today = todayStr();
+  const [view, setView] = useState(() => {
+    const d = new Date((value || today) + "T00:00:00");
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  // 외부(빠른 선택 칩)에서 value가 바뀌면 달력 뷰도 해당 월로 이동
+  useEffect(() => {
+    if (value) {
+      const d = new Date(value + "T00:00:00");
+      setView({ year: d.getFullYear(), month: d.getMonth() });
+    }
+  }, [value]);
+
+  const { year: vy, month: vm } = view;
+  const prevMonth = () => setView(v => v.month === 0  ? { year:v.year-1, month:11 } : { ...v, month:v.month-1 });
+  const nextMonth = () => setView(v => v.month === 11 ? { year:v.year+1, month:0  } : { ...v, month:v.month+1 });
+
+  const firstDow    = new Date(vy, vm, 1).getDay();
+  const daysInMonth = new Date(vy, vm + 1, 0).getDate();
+  const cells = [
+    ...Array(firstDow).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
   const shortcuts = [
     { label:"오늘",    val: offsetDay(0) },
     { label:"내일",    val: offsetDay(1) },
     { label:"이번 토", val: nextWeekday(6) },
     { label:"이번 일", val: nextWeekday(0) },
   ];
-  const weekend = isWeekendDate(value);
+  const KO_MONTH = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 
   return (
-    <div style={{ marginBottom:20 }}>
+    <div style={{ marginBottom:16 }}>
       {/* 빠른 선택 칩 */}
-      <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+      <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
         {shortcuts.map(s => (
           <button key={s.label} onClick={() => onChange(s.val)} style={{
             padding:"6px 14px", borderRadius:"999px",
             border: value===s.val ? "none" : `1.5px solid ${C.cardBorder}`,
             background: value===s.val ? C.main : C.card,
             color: value===s.val ? "#fff" : C.textDim,
-            fontSize:12, cursor:"pointer",
-            fontFamily:"'Noto Sans KR',sans-serif",
-            fontWeight: value===s.val ? 700 : 400,
-            transition:"all 0.15s",
+            fontSize:12, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif",
+            fontWeight: value===s.val ? 700 : 400, transition:"all 0.15s",
           }}>{s.label}</button>
         ))}
       </div>
 
-      {/* 날짜 표시 행 — 클릭 시 네이티브 date picker 열림 */}
-      <div style={{ position:"relative" }}>
-        <div
-          onClick={() => { inputRef.current?.showPicker?.(); inputRef.current?.click(); }}
-          style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"13px 16px", background:C.card, border:`1.5px solid ${value?C.main:C.inputBorder}`, borderRadius:14, cursor:"pointer", transition:"border-color 0.2s" }}
-        >
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:18 }}>📅</span>
-            <span style={{ fontSize:15, color:value?C.text:C.textMuted, fontFamily:"'Noto Sans KR',sans-serif", fontWeight:value?600:400 }}>
-              {value ? formatDateKo(value) : "날짜를 선택해주세요"}
-            </span>
-          </div>
-          {value && (
-            <span style={{ fontSize:11, padding:"2px 9px", borderRadius:"999px", fontWeight:600, background:weekend?C.pointDim:C.mainDim, color:weekend?C.point:C.main }}>
-              {weekend ? "주말" : "평일"}
-            </span>
-          )}
+      {/* 달력 카드 */}
+      <div style={{ background:C.card, border:`1.5px solid ${C.cardBorder}`, borderRadius:20, padding:"16px 14px 20px", boxShadow:"0 2px 12px #B8A9D910" }}>
+        {/* 월 네비게이션 */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+          <button onClick={prevMonth} style={{ width:32, height:32, borderRadius:"50%", border:"none", background:C.inputBg, color:C.textDim, fontSize:16, cursor:"pointer", lineHeight:1 }}>‹</button>
+          <span style={{ fontSize:15, fontWeight:700, color:C.text, fontFamily:"'Noto Sans KR',sans-serif" }}>
+            {vy}년 {KO_MONTH[vm]}
+          </span>
+          <button onClick={nextMonth} style={{ width:32, height:32, borderRadius:"50%", border:"none", background:C.inputBg, color:C.textDim, fontSize:16, cursor:"pointer", lineHeight:1 }}>›</button>
         </div>
-        {/* 실제 input — 투명하게 위에 올려 클릭 전달 */}
-        <input
-          ref={inputRef}
-          type="date"
-          value={value}
-          min={todayStr()}
-          onChange={e => onChange(e.target.value)}
-          style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }}
-        />
+
+        {/* 요일 헤더 */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
+          {["일","월","화","수","목","금","토"].map((d, i) => (
+            <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:700, padding:"4px 0",
+              color: i===0 ? "#E07070" : i===6 ? "#6090D0" : C.textMuted }}>
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* 날짜 셀 */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"2px" }}>
+          {cells.map((day, idx) => {
+            if (!day) return <div key={`e${idx}`} />;
+            const ds     = `${vy}-${String(vm+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+            const dow    = new Date(vy, vm, day).getDay();
+            const isPast = ds < today;
+            const isSel  = ds === value;
+            const isToday= ds === today;
+            const isSun  = dow === 0;
+            const isSat  = dow === 6;
+            return (
+              <button
+                key={ds}
+                onClick={() => !isPast && onChange(ds)}
+                style={{
+                  padding:"8px 2px", borderRadius:10,
+                  border: isToday && !isSel ? `1.5px solid ${C.main}` : "none",
+                  background: isSel ? C.main : "transparent",
+                  color: isPast ? C.textMuted
+                       : isSel  ? "#fff"
+                       : isSun  ? "#E07070"
+                       : isSat  ? "#6090D0"
+                       :           C.text,
+                  fontSize:13, fontWeight: isSel||isToday ? 700 : 400,
+                  cursor: isPast ? "default" : "pointer",
+                  opacity: isPast ? 0.3 : 1,
+                  fontFamily:"'Noto Sans KR',sans-serif",
+                  transition:"background 0.15s, color 0.15s",
+                }}
+              >{day}</button>
+            );
+          })}
+        </div>
       </div>
+
+      {/* 선택된 날짜 요약 */}
+      {value && (
+        <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:13, color:C.text, fontWeight:600, fontFamily:"'Noto Sans KR',sans-serif" }}>
+            📅 {formatDateKo(value)}
+          </span>
+          <span style={{ fontSize:11, padding:"2px 9px", borderRadius:"999px", fontWeight:600,
+            background: isWeekendDate(value) ? C.pointDim : C.mainDim,
+            color:      isWeekendDate(value) ? C.point    : C.main }}>
+            {isWeekendDate(value) ? "주말" : "평일"}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -833,7 +944,7 @@ export default function DateFlow() {
           </div>
 
           <label style={{ fontSize:12, color:C.textDim, display:"block", marginBottom:8, fontWeight:500 }}>데이트 날짜</label>
-          <DatePicker value={dateStr} onChange={setDateStr} />
+          <CalendarPicker value={dateStr} onChange={setDateStr} />
         </div>
 
         <button
