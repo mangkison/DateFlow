@@ -15,12 +15,15 @@ class CourseRequest(BaseModel):
 
 # 장소 정보
 class PlaceItem(BaseModel):
-    name:     str
-    category: str
-    region:   str
-    time:     str
-    price:    int
-    is_open:  bool
+    name:      str
+    category:  str
+    region:    str
+    time:      str
+    price:     int
+    is_open:   bool
+    latitude:  Optional[float] = None
+    longitude: Optional[float] = None
+    walk_minutes_to_next: Optional[int] = None
 
 # 코스 하나
 class CourseItem(BaseModel):
