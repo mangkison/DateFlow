@@ -9,6 +9,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 // ════════════════════════════════════════════════════════════
 
 const API_BASE    = process.env.REACT_APP_API_URL           || "http://localhost:8000";
+const F2_BASE     = process.env.REACT_APP_F2_URL            || "http://localhost:5173";
 // f2의 VITE_KAKAO_MAPS_API_KEY와 동일한 JavaScript 키 값을 사용
 const KAKAO_JS_KEY = process.env.REACT_APP_KAKAO_MAPS_API_KEY || "";
 
@@ -107,8 +108,8 @@ async function fetchWeatherWithFallback(lat, lon, cityName, targetDate) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tgt   = targetDate ? new Date(targetDate + "T00:00:00") : null;
 
-  if (tgt && tgt > today) {
-    // 미래 날짜 → 일별 예보
+  if (tgt && tgt >= today) {
+    // 오늘 포함 미래 날짜 → 일별 예보
     const days = Math.min(Math.ceil((tgt - today) / 86400000) + 2, 16);
     const w = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul&forecast_days=${days}`
@@ -502,6 +503,7 @@ function BudgetSlider({ minIdx, maxIdx, onMinChange, onMaxChange, color, label }
   const [showDirect, setShowDirect] = useState(false);
   const [dMin, setDMin] = useState("");
   const [dMax, setDMax] = useState("");
+  const [topSlider, setTopSlider] = useState("max");
 
   const applyDirect = () => {
     if (dMin.trim()) {
@@ -518,6 +520,15 @@ function BudgetSlider({ minIdx, maxIdx, onMinChange, onMaxChange, color, label }
   const leftPct  = (minIdx / 10) * 100;
   const rightPct = (maxIdx / 10) * 100;
 
+  const handleTrackMouseDown = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = (e.clientX - rect.left) / rect.width;
+    const val  = Math.round(pct * 10);
+    const distMin = Math.abs(val - minIdx);
+    const distMax = Math.abs(val - maxIdx);
+    setTopSlider(distMin <= distMax ? "min" : "max");
+  };
+
   return (
     <div style={{ marginBottom:8 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
@@ -528,14 +539,17 @@ function BudgetSlider({ minIdx, maxIdx, onMinChange, onMaxChange, color, label }
       </div>
 
       {/* 슬라이더 */}
-      <div style={{ position:"relative", height:4, background:C.inputBg, borderRadius:2, margin:"14px 0" }}>
+      <div
+        style={{ position:"relative", height:4, background:C.inputBg, borderRadius:2, margin:"14px 0" }}
+        onMouseDown={handleTrackMouseDown}
+      >
         <div style={{ position:"absolute", left:`${leftPct}%`, width:`${rightPct-leftPct}%`, height:"100%", background:color, borderRadius:2, opacity:0.7 }} />
         <input type="range" min={0} max={10} value={minIdx}
           onChange={e => { const v=Number(e.target.value); if(v<=maxIdx) onMinChange(v); }}
-          style={{ position:"absolute", width:"100%", top:-8, left:0, margin:0, accentColor:color }} />
+          style={{ position:"absolute", width:"100%", top:-8, left:0, margin:0, accentColor:color, zIndex: topSlider==="min" ? 3 : 1 }} />
         <input type="range" min={0} max={10} value={maxIdx}
           onChange={e => { const v=Number(e.target.value); if(v>=minIdx) onMaxChange(v); }}
-          style={{ position:"absolute", width:"100%", top:-8, left:0, margin:0, accentColor:color }} />
+          style={{ position:"absolute", width:"100%", top:-8, left:0, margin:0, accentColor:color, zIndex: topSlider==="max" ? 3 : 1 }} />
       </div>
 
       {/* 눈금 */}
@@ -929,10 +943,25 @@ export default function DateFlow() {
 
     await new Promise(r => setTimeout(r, 400)); // 최소 로딩 UX
 
-    setApiCourses(realCourses || null);
-    setIsUsingMock(!realCourses);
+    // f2로 이동 (URL 파라미터로 데이터 전달)
+    const urlParams = new URLSearchParams({
+      session:   sid,
+      region:    cityName,
+      lat:       String(lat),
+      lon:       String(lon),
+      date:      dateStr,
+      weather:   weatherObj.type,
+      temp:      String(weatherObj.temp ?? ""),
+      humidity:  String(weatherObj.humidity ?? ""),
+      windSpeed: String(weatherObj.windSpeed ?? ""),
+      pop:       String(weatherObj.pop ?? ""),
+      skyDesc:   weatherObj.skyDesc || "",
+      tagsA:     tagsA.join(","),
+      tagsB:     tagsB.join(","),
+      budget:    String(budget),
+    });
     setLoadingMsg("");
-    setStep(5);
+    window.location.href = `${F2_BASE}?${urlParams.toString()}`;
   };
 
   const reset = () => {
@@ -944,7 +973,8 @@ export default function DateFlow() {
   const wrap  = { minHeight:"100vh", background:C.bg, fontFamily:"'Noto Sans KR',sans-serif", display:"flex", flexDirection:"column", alignItems:"center", padding:"0 0 80px" };
   const inner = { maxWidth:"420px", width:"100%", padding: isMobile ? "28px 14px 0" : "48px 20px 0" };
 
-  const areaName = region?.name || "";
+  const areaName   = region?.name || "";
+  const commonTags = tagsA.filter(t => tagsB.includes(t));
 
   // ── 로딩 ────────────────────────────────────────────────
   if (loadingMsg) return <LoadingScreen message={loadingMsg} />;
@@ -1219,9 +1249,12 @@ export default function DateFlow() {
             </span>
           </div>
           <div style={{ borderTop:`1px solid ${C.cardBorder}`, paddingTop:12, marginTop:12 }}>
-            <div style={{ fontSize:11, color:C.textMuted, marginBottom:6, fontWeight:600 }}>공통 교집합</div>
+            <div style={{ fontSize:11, color:C.textMuted, marginBottom:6, fontWeight:600 }}>공통 취향</div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-              {MOCK_COMMON_TAGS.map(t => <span key={t} style={{ fontSize:12, background:C.skyDim, color:C.sky, padding:"3px 10px", borderRadius:"999px", border:`1px solid ${C.sky}44` }}>{t}</span>)}
+              {commonTags.length > 0
+                ? commonTags.map(t => <span key={t} style={{ fontSize:12, background:C.skyDim, color:C.sky, padding:"3px 10px", borderRadius:"999px", border:`1px solid ${C.sky}44` }}>{t}</span>)
+                : <span style={{ fontSize:12, color:C.textMuted }}>공통 취향 없음</span>
+              }
             </div>
           </div>
         </div>
