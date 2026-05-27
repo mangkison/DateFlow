@@ -1,0 +1,194 @@
+[
+  {
+    "name": "홍대",
+    "latitude": 37.5563,
+    "longitude": 126.9234,
+    "radius_m": 1000
+  },
+  {
+    "name": "강남",
+    "latitude": 37.4979,
+    "longitude": 127.0276,
+    "radius_m": 1500
+  },
+  {
+    "name": "이태원",
+    "latitude": 37.534,
+    "longitude": 126.994,
+    "radius_m": 1000
+  },
+  {
+    "name": "신촌",
+    "latitude": 37.5551,
+    "longitude": 126.9368,
+    "radius_m": 800
+  },
+  {
+    "name": "건대",
+    "latitude": 37.5403,
+    "longitude": 127.0694,
+    "radius_m": 1000
+  },
+  {
+    "name": "성수",
+    "latitude": 37.5444,
+    "longitude": 127.0557,
+    "radius_m": 1000
+  },
+  {
+    "name": "여의도",
+    "latitude": 37.5219,
+    "longitude": 126.9245,
+    "radius_m": 1200
+  },
+  {
+    "name": "인사동",
+    "latitude": 37.5742,
+    "longitude": 126.9862,
+    "radius_m": 800
+  },
+  {
+    "name": "합정",
+    "latitude": 37.5498,
+    "longitude": 126.9137,
+    "radius_m": 800
+  },
+  {
+    "name": "종로",
+    "latitude": 37.57,
+    "longitude": 126.982,
+    "radius_m": 1000
+  },
+  {
+    "name": "수원",
+    "latitude": 37.2636,
+    "longitude": 127.0286,
+    "radius_m": 2000
+  },
+  {
+    "name": "판교",
+    "latitude": 37.3948,
+    "longitude": 127.1108,
+    "radius_m": 1500
+  },
+  {
+    "name": "일산",
+    "latitude": 37.6762,
+    "longitude": 126.7671,
+    "radius_m": 2000
+  },
+  {
+    "name": "파주헤이리",
+    "latitude": 37.7879,
+    "longitude": 126.7103,
+    "radius_m": 2000
+  },
+  {
+    "name": "가평",
+    "latitude": 37.8314,
+    "longitude": 127.5108,
+    "radius_m": 3000
+  },
+  {
+    "name": "인천송도",
+    "latitude": 37.3926,
+    "longitude": 126.648,
+    "radius_m": 2000
+  },
+  {
+    "name": "인천개항장",
+    "latitude": 37.4745,
+    "longitude": 126.6172,
+    "radius_m": 1000
+  },
+  {
+    "name": "해운대",
+    "latitude": 35.1587,
+    "longitude": 129.1604,
+    "radius_m": 2000
+  },
+  {
+    "name": "광안리",
+    "latitude": 35.1531,
+    "longitude": 129.1185,
+    "radius_m": 1000
+  },
+  {
+    "name": "서면",
+    "latitude": 35.1576,
+    "longitude": 129.0593,
+    "radius_m": 1000
+  },
+  {
+    "name": "남포동",
+    "latitude": 35.0978,
+    "longitude": 129.0313,
+    "radius_m": 800
+  },
+  {
+    "name": "동성로",
+    "latitude": 35.8714,
+    "longitude": 128.5941,
+    "radius_m": 1000
+  },
+  {
+    "name": "수성못",
+    "latitude": 35.8507,
+    "longitude": 128.6296,
+    "radius_m": 1000
+  },
+  {
+    "name": "충장로",
+    "latitude": 35.1482,
+    "longitude": 126.9164,
+    "radius_m": 800
+  },
+  {
+    "name": "양림동",
+    "latitude": 35.1384,
+    "longitude": 126.9107,
+    "radius_m": 800
+  },
+  {
+    "name": "유성",
+    "latitude": 36.3624,
+    "longitude": 127.3564,
+    "radius_m": 1500
+  },
+  {
+    "name": "둔산",
+    "latitude": 36.351,
+    "longitude": 127.3886,
+    "radius_m": 1500
+  },
+  {
+    "name": "춘천",
+    "latitude": 37.8747,
+    "longitude": 127.734,
+    "radius_m": 2000
+  },
+  {
+    "name": "강릉",
+    "latitude": 37.7519,
+    "longitude": 128.8761,
+    "radius_m": 2000
+  },
+  {
+    "name": "속초",
+    "latitude": 38.207,
+    "longitude": 128.5919,
+    "radius_m": 2000
+  },
+  {
+    "name": "제주시",
+    "latitude": 33.4996,
+    "longitude": 126.5312,
+    "radius_m": 3000
+  },
+  {
+    "name": "서귀포",
+    "latitude": 33.2541,
+    "longitude": 126.56,
+    "radius_m": 3000
+  }
+]

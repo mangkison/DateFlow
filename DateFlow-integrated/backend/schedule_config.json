@@ -1,0 +1,15 @@
+{
+  "enrich_descriptions": {
+    "type": "interval",
+    "hours": 1
+  },
+  "enrich_bookings": {
+    "type": "interval",
+    "hours": 2
+  },
+  "collect_regions": {
+    "type": "cron",
+    "day_of_week": "mon,wed,fri",
+    "hour": 2
+  }
+}
