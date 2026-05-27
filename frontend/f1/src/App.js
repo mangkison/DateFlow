@@ -64,37 +64,63 @@ const WEATHER_META = {
 };
 
 // 기상청(백엔드) → open-meteo 순으로 시도
-async function fetchWeatherWithFallback(lat, lon, cityName) {
+// targetDate: "YYYY-MM-DD" 형식 (없으면 오늘)
+async function fetchWeatherWithFallback(lat, lon, cityName, targetDate) {
   // 1. 기상청 API (백엔드 /weather/ 프록시)
   try {
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 4000);
+    const dateParam = targetDate ? `&target_date=${targetDate.replace(/-/g, "")}` : "";
     const res   = await fetch(
-      `${API_BASE}/weather/?lat=${lat}&lon=${lon}&region=${encodeURIComponent(cityName || "")}`,
+      `${API_BASE}/weather/?lat=${lat}&lon=${lon}&region=${encodeURIComponent(cityName || "")}${dateParam}`,
       { signal: ctrl.signal }
     );
     clearTimeout(timer);
     if (res.ok) {
       const d = await res.json();
-      // error 필드 없고 pty_code가 정상이면 기상청 데이터 사용
       if (!d.error && d.pty_code !== null && d.pty_code !== undefined) {
         let type = "cloudy";
-        if ([1,2,4].includes(d.pty_code)) type = "rainy";
-        else if (d.pty_code === 3)         type = "snow";
-        else if (d.temperature >= 20)      type = "sunny";
+        if (d.pty_code > 0) {
+          if ([1,2,4].includes(d.pty_code)) type = "rainy";
+          else if (d.pty_code === 3)         type = "snow";
+        } else {
+          if (d.sky_code === 1) type = "sunny";
+          else                  type = "cloudy";
+        }
         return {
           type,
-          temp:      d.temperature !== null ? Math.round(d.temperature) : null,
-          cityName:  cityName || d.region || "선택 지역",
-          source:    "kma",
-          humidity:  d.humidity,
-          windSpeed: d.wind_speed,
+          temp:        d.temperature !== null ? Math.round(d.temperature) : null,
+          cityName:    cityName || d.region || "선택 지역",
+          source:      "kma",
+          humidity:    d.humidity,
+          windSpeed:   d.wind_speed,
+          pop:         d.pop,
+          skyDesc:     d.sky_desc,
+          description: d.description,
+          isOutdoorOk: d.is_outdoor_ok,
         };
       }
     }
   } catch { /* 백엔드 미연결 → 폴백 */ }
 
   // 2. open-meteo 폴백
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tgt   = targetDate ? new Date(targetDate + "T00:00:00") : null;
+
+  if (tgt && tgt > today) {
+    // 미래 날짜 → 일별 예보
+    const days = Math.min(Math.ceil((tgt - today) / 86400000) + 2, 16);
+    const w = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul&forecast_days=${days}`
+    ).then(r => r.json());
+    const idx = (w.daily?.time || []).indexOf(targetDate);
+    if (idx >= 0) {
+      const avg = Math.round((w.daily.temperature_2m_max[idx] + w.daily.temperature_2m_min[idx]) / 2);
+      return { type: weatherCodeToType(w.daily.weathercode[idx]), temp: avg, cityName: cityName || "선택 지역", source: "openmeteo", lat, lon };
+    }
+  }
+
+  // 오늘 또는 폴백 → 현재 날씨
   const w = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weathercode,temperature_2m&timezone=Asia%2FSeoul`
   ).then(r => r.json());
@@ -107,17 +133,17 @@ async function fetchWeatherWithFallback(lat, lon, cityName) {
   };
 }
 
-async function fetchWeatherByCoords(lat, lon, cityName) {
-  return fetchWeatherWithFallback(lat, lon, cityName);
+async function fetchWeatherByCoords(lat, lon, cityName, targetDate) {
+  return fetchWeatherWithFallback(lat, lon, cityName, targetDate);
 }
 
-async function fetchWeatherByCity(city) {
+async function fetchWeatherByCity(city, targetDate) {
   const g = await fetch(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=ko`
   ).then(r => r.json());
   if (!g.results?.length) throw new Error("지역을 찾을 수 없어요");
   const { latitude, longitude, name } = g.results[0];
-  return fetchWeatherWithFallback(latitude, longitude, name);
+  return fetchWeatherWithFallback(latitude, longitude, name, targetDate);
 }
 
 // ── 예산 ──────────────────────────────────────────────────
@@ -306,7 +332,7 @@ function NavButtons({ onBack, onNext, nextLabel, nextDisabled }) {
 }
 
 // ── 지역 검색 (카카오 API + 자유입력 폴백) ─────────────────
-function RegionInput({ value, onChange, onWeatherReady }) {
+function RegionInput({ value, onChange }) {
   const [query,    setQuery]   = useState(value?.name || "");
   const [results,  setResults] = useState([]);
   const [loading,  setLoading] = useState(false);
@@ -346,19 +372,10 @@ function RegionInput({ value, onChange, onWeatherReady }) {
     }
   };
 
-  const handleSelect = async (result) => {
+  const handleSelect = (result) => {
     setQuery(result.name);
     setOpen(false);
     onChange(result);
-    // 날씨 미리보기: 좌표가 있으면 바로, 없으면 geocoding
-    if (onWeatherReady) {
-      try {
-        const wx = result.lat
-          ? await fetchWeatherByCoords(result.lat, result.lon, result.name)
-          : await fetchWeatherByCity(result.name);
-        onWeatherReady(wx);
-      } catch {}
-    }
   };
 
   useEffect(() => {
@@ -429,22 +446,53 @@ function WeatherBadge({ wx, loading }) {
   if (!wx) return null;
   const m     = WEATHER_META[wx.type];
   const isKMA = wx.source === "kma";
+  const hasExtra = isKMA && (wx.humidity != null || wx.windSpeed != null || wx.pop != null || wx.skyDesc);
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:C.skyDim, border:`1px solid ${C.sky}44`, borderRadius:12, animation:"fadeUp 0.3s ease" }}>
-      <span style={{ fontSize:20 }}>{m.icon}</span>
-      <div style={{ flex:1 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap", marginBottom:2 }}>
-          <span style={{ fontSize:13, fontWeight:700, color:C.text }}>
-            {wx.cityName} 현재 {m.label}{wx.temp !== null ? ` · ${wx.temp}°C` : ""}
-          </span>
-          <span style={{ fontSize:10, padding:"1px 6px", borderRadius:4, fontWeight:700,
-            background: isKMA ? C.greenBg : C.skyDim,
-            color:      isKMA ? C.green   : C.sky }}>
-            {isKMA ? "기상청" : "open-meteo"}
-          </span>
+    <div style={{ padding:"12px 14px", background:C.skyDim, border:`1px solid ${C.sky}44`, borderRadius:14, animation:"fadeUp 0.3s ease" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <span style={{ fontSize:24 }}>{m.icon}</span>
+        <div style={{ flex:1 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap", marginBottom:2 }}>
+            <span style={{ fontSize:13, fontWeight:700, color:C.text }}>
+              {wx.cityName} 현재 {wx.skyDesc || m.label}{wx.temp !== null ? ` · ${wx.temp}°C` : ""}
+            </span>
+            <span style={{ fontSize:10, padding:"1px 6px", borderRadius:4, fontWeight:700,
+              background: isKMA ? C.greenBg : C.skyDim,
+              color:      isKMA ? C.green   : C.sky }}>
+              {isKMA ? "기상청" : "open-meteo"}
+            </span>
+          </div>
+          <div style={{ fontSize:11, color:C.textDim }}>{m.note} · 코스 생성에 반영돼요</div>
         </div>
-        <div style={{ fontSize:11, color:C.textDim }}>{m.note} · 코스 생성에 반영돼요</div>
       </div>
+
+      {/* 기상청 추가 정보 */}
+      {hasExtra && (
+        <div style={{ display:"flex", gap:14, marginTop:10, paddingTop:8, borderTop:`1px solid ${C.sky}33`, flexWrap:"wrap" }}>
+          {wx.humidity != null && (
+            <span style={{ fontSize:12, color:C.textDim, display:"flex", alignItems:"center", gap:4 }}>
+              💧 습도 <strong style={{ color:C.text }}>{wx.humidity}%</strong>
+            </span>
+          )}
+          {wx.windSpeed != null && (
+            <span style={{ fontSize:12, color:C.textDim, display:"flex", alignItems:"center", gap:4 }}>
+              💨 풍속 <strong style={{ color:C.text }}>{wx.windSpeed}m/s</strong>
+            </span>
+          )}
+          {wx.pop != null && (
+            <span style={{ fontSize:12, color:C.textDim, display:"flex", alignItems:"center", gap:4 }}>
+              🌂 강수확률 <strong style={{ color:C.text }}>{wx.pop}%</strong>
+            </span>
+          )}
+          {wx.isOutdoorOk != null && (
+            <span style={{ fontSize:12, padding:"1px 8px", borderRadius:"999px", fontWeight:600,
+              background: wx.isOutdoorOk ? C.greenBg : C.errorBg,
+              color:      wx.isOutdoorOk ? C.green   : C.error }}>
+              {wx.isOutdoorOk ? "실외 활동 가능" : "실내 추천"}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -647,30 +695,10 @@ function CalendarPicker({ value, onChange }) {
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const shortcuts = [
-    { label:"오늘",    val: offsetDay(0) },
-    { label:"내일",    val: offsetDay(1) },
-    { label:"이번 토", val: nextWeekday(6) },
-    { label:"이번 일", val: nextWeekday(0) },
-  ];
   const KO_MONTH = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 
   return (
     <div style={{ marginBottom:16 }}>
-      {/* 빠른 선택 칩 */}
-      <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
-        {shortcuts.map(s => (
-          <button key={s.label} onClick={() => onChange(s.val)} style={{
-            padding:"6px 14px", borderRadius:"999px",
-            border: value===s.val ? "none" : `1.5px solid ${C.cardBorder}`,
-            background: value===s.val ? C.main : C.card,
-            color: value===s.val ? "#fff" : C.textDim,
-            fontSize:12, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif",
-            fontWeight: value===s.val ? 700 : 400, transition:"all 0.15s",
-          }}>{s.label}</button>
-        ))}
-      </div>
-
       {/* 달력 카드 */}
       <div style={{ background:C.card, border:`1.5px solid ${C.cardBorder}`, borderRadius:20, padding:"16px 14px 20px", boxShadow:"0 2px 12px #B8A9D910" }}>
         {/* 월 네비게이션 */}
@@ -787,18 +815,31 @@ export default function DateFlow() {
   const budgetOverlapMax = Math.min(budgetMaxA, budgetMaxB);
   const hasBudgetOverlap = budgetOverlapMin <= budgetOverlapMax;
 
-  // 랜딩에서 지역 선택 시 날씨 미리보기 트리거
-  const handleWeatherReady = (wx) => {
-    setWxPreview(wx);
-    setWxLoading(false);
-  };
-  const handleRegionChange = (result) => {
-    setRegion(result);
-    setWxPreview(null);
-    if (result?.name) {
-      setWxLoading(true);
+  // 지역 또는 날짜가 바뀔 때마다 날씨 재조회
+  useEffect(() => {
+    if (!region?.name) {
+      setWxPreview(null);
+      setWxLoading(false);
+      return;
     }
-  };
+    let cancelled = false;
+    setWxPreview(null);
+    setWxLoading(true);
+    const doFetch = async () => {
+      try {
+        const wx = region.lat
+          ? await fetchWeatherByCoords(region.lat, region.lon, region.name, dateStr)
+          : await fetchWeatherByCity(region.name, dateStr);
+        if (!cancelled) setWxPreview(wx);
+      } catch {
+        if (!cancelled) setWxPreview(null);
+      } finally {
+        if (!cancelled) setWxLoading(false);
+      }
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  }, [region, dateStr]);
 
   // ── 코스 생성 (3주차 실제 API) ────────────────────────
   const handleGenerate = async () => {
@@ -931,20 +972,16 @@ export default function DateFlow() {
         ))}
 
         <div style={{ marginTop:24 }}>
+          <label style={{ fontSize:12, color:C.textDim, display:"block", marginBottom:8, fontWeight:500 }}>데이트 날짜</label>
+          <CalendarPicker value={dateStr} onChange={setDateStr} />
+
           <label style={{ fontSize:12, color:C.textDim, display:"block", marginBottom:8, fontWeight:500 }}>데이트 지역</label>
-          <RegionInput
-            value={region}
-            onChange={handleRegionChange}
-            onWeatherReady={handleWeatherReady}
-          />
+          <RegionInput value={region} onChange={setRegion} />
 
           {/* 날씨 미리보기 */}
           <div style={{ marginTop:8, marginBottom:16, minHeight:wxLoading ? 48 : 0 }}>
             <WeatherBadge wx={wxPreview} loading={wxLoading && !wxPreview} />
           </div>
-
-          <label style={{ fontSize:12, color:C.textDim, display:"block", marginBottom:8, fontWeight:500 }}>데이트 날짜</label>
-          <CalendarPicker value={dateStr} onChange={setDateStr} />
         </div>
 
         <button
@@ -1126,14 +1163,38 @@ export default function DateFlow() {
           )}
           {/* 날씨 배지 */}
           <span style={{ fontSize:12, background:C.skyDim, color:C.sky, padding:"5px 12px", borderRadius:"999px", border:`1px solid ${C.sky}44`, display:"flex", alignItems:"center", gap:5 }}>
-            {wxMeta.icon} {wxMeta.label}
+            {wxMeta.icon} {weather?.skyDesc || wxMeta.label}
             {weather?.temp != null && <span style={{ color:C.textMuted }}>· {weather.temp}°C</span>}
-            <span style={{ fontSize:10, background:`${C.sky}33`, color:C.sky, padding:"1px 5px", borderRadius:4 }}>자동감지</span>
+            <span style={{ fontSize:10, background: weather?.source==="kma" ? C.greenBg : `${C.sky}33`, color: weather?.source==="kma" ? C.green : C.sky, padding:"1px 5px", borderRadius:4, fontWeight:700 }}>
+              {weather?.source === "kma" ? "기상청" : "자동감지"}
+            </span>
           </span>
         </div>
 
-        <div style={{ background:C.skyDim, border:`1px solid ${C.sky}44`, borderRadius:12, padding:"12px 16px", marginBottom:18, fontSize:12, color:C.textDim }}>
-          {wxMeta.icon} <strong style={{ color:C.text }}>{weather?.cityName || areaName}</strong> 현재 날씨 기준 — {wxMeta.note}
+        <div style={{ background:C.skyDim, border:`1px solid ${C.sky}44`, borderRadius:14, padding:"12px 16px", marginBottom:18 }}>
+          <div style={{ fontSize:12, color:C.textDim, marginBottom: (weather?.humidity != null || weather?.pop != null) ? 8 : 0 }}>
+            {wxMeta.icon} <strong style={{ color:C.text }}>{weather?.cityName || areaName}</strong> 현재 날씨 기준 — {wxMeta.note}
+          </div>
+          {(weather?.humidity != null || weather?.windSpeed != null || weather?.pop != null) && (
+            <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+              {weather.humidity != null && (
+                <span style={{ fontSize:11, color:C.textDim }}>💧 습도 <strong style={{ color:C.text }}>{weather.humidity}%</strong></span>
+              )}
+              {weather.windSpeed != null && (
+                <span style={{ fontSize:11, color:C.textDim }}>💨 풍속 <strong style={{ color:C.text }}>{weather.windSpeed}m/s</strong></span>
+              )}
+              {weather.pop != null && (
+                <span style={{ fontSize:11, color:C.textDim }}>🌂 강수확률 <strong style={{ color:C.text }}>{weather.pop}%</strong></span>
+              )}
+              {weather.isOutdoorOk != null && (
+                <span style={{ fontSize:11, padding:"1px 7px", borderRadius:"999px", fontWeight:600,
+                  background: weather.isOutdoorOk ? C.greenBg : C.errorBg,
+                  color:      weather.isOutdoorOk ? C.green   : C.error }}>
+                  {weather.isOutdoorOk ? "실외 활동 가능" : "실내 추천"}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 취향 요약 카드 */}
