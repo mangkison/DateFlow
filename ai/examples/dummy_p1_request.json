@@ -1,0 +1,15 @@
+{
+  "natural_language": "성수동에서 토요일 데이트 코스 짜줘",
+  "merged_preferences": {
+    "atmospheres": ["감성적", "조용한"],
+    "categories": ["카페", "전시"],
+    "areas_preferred": ["성수", "홍대"],
+    "budget_max": 100000
+  },
+  "weather": {
+    "condition": "cloudy",
+    "temp_celsius": 18
+  },
+  "area": "성수동",
+  "visit_date": "2025-05-24"
+}

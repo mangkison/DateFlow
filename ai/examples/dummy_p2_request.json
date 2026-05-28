@@ -1,0 +1,19 @@
+{
+  "selected_event": {
+    "name": "성수 갤러리 카페 전시",
+    "place_id": "kakao:145791269",
+    "category": "전시",
+    "time": "13:00"
+  },
+  "merged_preferences": {
+    "atmospheres": ["감성적", "조용한"],
+    "categories": ["카페", "전시"],
+    "areas_preferred": ["성수"],
+    "budget_max": 100000
+  },
+  "weather": {
+    "condition": "cloudy",
+    "temp_celsius": 18
+  },
+  "visit_date": "2025-05-24"
+}
